@@ -196,3 +196,25 @@ CI verification for the commit:
 The strongest production boundary is now demonstrably the approval-backed CommerceControlPlane. The largest remaining qualification risk is decision quality, specifically JEV confidence semantics and evidence contradiction/quality handling. Customer conversational state is also still a capability boundary rather than a demonstrated multi-turn agent capability.
 
 No new agent, framework, integration, or product feature was introduced.
+
+
+## Qualification pass 3 — customer state and partial failure
+
+Additional qualification on the current implementation:
+
+- **Customer multi-turn persistence:** two inbound turns from the same WhatsApp identity resolve to the same customer record and the same open conversation, while both messages are persisted with that conversation. This proves persistence of the conversation identity/history at the intake/database layer.
+- **Agent conversational context:** the current customer-facing agents do not consume persisted message history or conversation state when generating the response. Therefore persistence exists, but true state-aware multi-turn agent behavior is **not yet demonstrated**. No state architecture or agent behavior was added.
+- **Partial pipeline failure:** when a specialist fails, Professor OS returns `failed` immediately, preserves the completed prefix in the response/audit trail, and does not continue to later specialists. This is safe fail-stop behavior, but there is currently no automatic retry/resume/recovery.
+- **Recovery capability:** automatic retry/resume would change orchestration semantics and was therefore not introduced during qualification.
+
+Qualification commit: `50168d41e1d45bceb4d3bb28a49062243b52f4d4`.
+
+### Updated capability boundary
+
+The current implementation now has evidence for:
+- persistent customer/conversation identity across multiple turns;
+- complete message persistence;
+- audited specialist failure with parent-task context;
+- fail-stop Professor OS behavior without continuing into later stages.
+
+The remaining gap is **state-aware agent behavior and recovery**, not basic persistence or failure containment. These remain qualification findings rather than implementation requests.
