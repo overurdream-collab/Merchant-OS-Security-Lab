@@ -123,7 +123,7 @@ class TestCommerceAgentControlPlane(unittest.TestCase):
             approval_evidence="valid-human-confirmation",
         )
         self.control.execute(proposal, approval.approval_id)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             rows = db.execute("SELECT task_type, status, input, output FROM agent_runs ORDER BY run_id").fetchall()
         self.assertEqual([row["task_type"] for row in rows], ["commerce_approval", "commerce_action"])
         self.assertEqual(rows[0]["status"], "APPROVED")
