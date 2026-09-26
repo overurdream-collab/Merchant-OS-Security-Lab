@@ -132,3 +132,42 @@ Recommended engineering path:
 6. Arabic multi-intent routing
 7. Customer/order conversational state
 8. End-to-end mission -> decision -> approved execution boundary
+
+
+## Qualification pass 1 — completed 2026-09-27
+
+### Proven invariants tested
+
+- **Evidence provenance:** placeholder provenance such as `candidate_input` is rejected by `verify_evidence`.
+- **Runtime isolation:** extracting `_next_agent` no longer mutates a handler-owned output dictionary.
+- **Runtime failure audit:** specialist exceptions are converted into failed `AgentResult` records and audited with the original parent task.
+- **Professor context chain:** the 10-specialist pipeline preserves a parent-task chain from Research through Supervisor.
+- **Approval tampering:** changing approved proposal parameters invalidates the approval fingerprint.
+- **Approval replay:** the same persisted approval cannot execute twice.
+- **Scope escalation:** a proposal that changes the approved scope cannot reuse the original approval.
+
+The deep qualification suite was committed as `1b2a8bcdd147ef0089de764fd0ab564122056e82`.
+
+### CI verification
+
+For that commit, GitHub Actions reported:
+- Security Lab Tests: **success**
+- Merchant OS CI: **success**
+- test workflow job: **success**
+
+Therefore the qualification additions did not regress the repository's automated test gates.
+
+### Findings requiring characterization, not blind fixes
+
+1. **JEV contradiction handling:** the current score is driven by evidence count and does not distinguish independent evidence from contradictory evidence. This is a confirmed design limitation, but changing the decision semantics would be a product/decision-policy change rather than a routine bug fix. No production change was made.
+2. **JEV candidate quality:** mixed scored/unscored candidates fall back to the first candidate. This behavior is documented by the implementation but is not yet proven to violate an explicit contract. No production change was made.
+3. **Verification truth:** provenance shape is now checked more strictly, but the verifier still does not independently authenticate or corroborate source truth. This remains a capability boundary.
+4. **Multi-intent Arabic routing:** the router intentionally returns one primary intent. Inputs containing multiple intents therefore follow precedence rules rather than producing a multi-intent plan. This is a design limitation unless the product contract requires multi-intent handling.
+5. **Conversational state:** the current qualification target remains to verify customer/order state across multiple turns; no new state architecture has been introduced.
+6. **Dynamic orchestration:** `AgentRuntime.next_agent` remains metadata only. Professor OS owns orchestration, so this is not treated as a defect.
+
+### Reuse conclusion
+
+Current external research supports borrowing evaluation and orchestration patterns rather than replacing Merchant OS's architecture. In particular, trajectory/state-aware evaluation and explicit tool/business-rule guardrails are proven patterns in current agent tooling. They can strengthen qualification without forcing a framework migration. citeturn0search0turn0search1
+
+No external agent or framework has been integrated.
