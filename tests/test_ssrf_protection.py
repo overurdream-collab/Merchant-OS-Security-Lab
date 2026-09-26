@@ -35,7 +35,10 @@ class TestResearchEnrichmentSecurity(unittest.TestCase):
         self.assertFalse(result["fetch_ok"])
 
     def test_redirect_handler_rejects_loopback_target(self):
-        handler = WebPageEnricher()._opener.handlers[0]
+        handler = next(
+            h for h in WebPageEnricher()._opener.handlers
+            if h.__class__.__name__ == "_SafeRedirectHandler"
+        )
         # The actual request is never made: redirect validation happens first.
         class Req:
             full_url = "https://example.com/start"
