@@ -45,7 +45,7 @@ class AgentRuntime:
         self.tools = tools
 
     def register(self, definition): self.registry[definition.name] = definition
-    def register_many(self, definitions): 
+    def register_many(self, definitions):
         for definition in definitions: self.register(definition)
 
     def list_agents(self):
@@ -60,7 +60,7 @@ class AgentRuntime:
             result=AgentResult(task.task_id,"unassigned","failed",{},error=f"No agent registered for task type: {task.task_type}")
             self._audit(task,result); return result
         try:
-            output=definition.handler(task) or {}
+            output=dict(definition.handler(task) or {})
             next_agent=output.pop("_next_agent",None)
             result=AgentResult(task.task_id,definition.name,"completed",output,next_agent)
         except Exception as exc:
