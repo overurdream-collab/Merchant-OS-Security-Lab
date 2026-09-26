@@ -245,3 +245,23 @@ followed, when separately approved, by:
 The execution path does not accept a caller-supplied boolean as authorization and does not permit the ExecutionAgent to bypass the CommerceControlPlane.
 
 No new agent, framework, integration, or product feature was introduced.
+
+
+## Qualification pass 5 — JEV adversarial decision-quality characterization
+
+The JEV qualification suite now explicitly exercises four cases without changing production decision semantics:
+
+- **Contradictory evidence:** consistent and contradictory evidence with the same count produce the same confidence. Contradiction is therefore not represented in the current score.
+- **Provenance manipulation:** changing two evidence entries from distinct sources to repeated provenance does not change confidence when evidence count remains equal.
+- **Mixed candidate quality:** when candidates are a mixture of scored and unscored entries, the current implementation falls back to the first candidate rather than selecting the highest scored entry.
+- **Weak evidence saturation:** five weak/unsupported evidence items can produce `confidence == 1.0` because the current formula is `min(1.0, evidence_count / 5.0)`.
+
+Qualification test commit: `99fd5d98981396065381cc0d024cd4e27125697`.
+
+### Interpretation
+
+These tests demonstrate a **decision-quality limitation**, not an execution-security bypass. JEV does not execute commerce and the existing decision gate / approval-backed CommerceControlPlane remain separate enforcement layers.
+
+No production JEV behavior was changed. Any change to confidence semantics, evidence weighting, contradiction handling, or candidate selection would alter decision policy and requires explicit product/decision-policy approval.
+
+The next engineering qualification target is therefore **context integrity across the ten-specialist Professor pipeline**: prove that adversarial or malformed state cannot silently disappear, overwrite prior findings, or cross specialist boundaries.
