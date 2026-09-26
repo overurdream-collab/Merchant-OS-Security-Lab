@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Merchant OS — تسوّق بذكاء</title>
+  <meta name="description" content="واجهة مبيعات Merchant OS — منتجات وعروض مختارة لك.">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container nav">
+      <a class="brand" href="#" aria-label="Merchant OS"><span class="brand-mark">M</span><span>Merchant OS</span></a>
+      <form class="search" id="searchForm">
+        <span aria-hidden="true">⌕</span>
+        <input id="searchInput" type="search" placeholder="ابحث عن منتج أو فئة..." autocomplete="off">
+        <button type="submit">بحث</button>
+      </form>
+      <div class="nav-actions">
+        <button class="icon-btn" aria-label="المفضلة">♡</button>
+        <button class="cart-btn" id="cartButton">السلة <b id="cartCount">0</b></button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <span class="eyebrow">تسوّق أذكى</span>
+          <h1>منتجات مناسبة لك،<br><em>في الوقت المناسب.</em></h1>
+          <p>نساعدك على اكتشاف عروض ومنتجات من تجار موثوقين، ونرتّبها حسب ما يهمك فعلاً.</p>
+          <div class="hero-actions">
+            <a class="primary" href="#for-you">اكتشف مختاراتك</a>
+            <a class="secondary" href="#categories">تصفح التصنيفات</a>
+          </div>
+          <div class="trust-mini"><span>✓ تجار موثوقون</span><span>✓ طلب بسيط</span><span>✓ فحص عند الاستلام</span></div>
+        </div>
+        <div class="hero-art">
+          <div class="art-glow"></div>
+          <div class="hero-card">
+            <span class="tag">مختار لك</span>
+            <div class="hero-product">⌁</div>
+            <div><small>عرض اليوم</small><strong>اختيارات تتوافق مع اهتماماتك</strong></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="for-you">
+      <div class="container">
+        <div class="section-head"><div><span class="eyebrow">PERSONALIZED</span><h2>مختارات لك</h2></div><a href="#">عرض الكل ←</a></div>
+        <div class="product-grid" id="productGrid"></div>
+      </div>
+    </section>
+
+    <section class="section soft" id="categories">
+      <div class="container">
+        <div class="section-head"><div><span class="eyebrow">DISCOVER</span><h2>تصفح حسب الاهتمام</h2></div></div>
+        <div class="chips">
+          <button class="chip active" data-category="all">الكل</button>
+          <button class="chip" data-category="أزياء">أزياء</button>
+          <button class="chip" data-category="منزل">منزل</button>
+          <button class="chip" data-category="عناية">عناية</button>
+          <button class="chip" data-category="إلكترونيات">إلكترونيات</button>
+          <button class="chip" data-category="أطفال">أطفال</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container offer-banner">
+        <div><span class="eyebrow">TODAY'S OFFERS</span><h2>عروض تستحق المشاهدة</h2><p>عروض محددة بوقت وكمية، بدون إغراقك برسائل لا تهمك.</p></div>
+        <a class="primary" href="#for-you">شاهد العروض</a>
+      </div>
+    </section>
+
+    <section class="trust-section">
+      <div class="container trust-grid">
+        <div><span>✓</span><strong>تجار موثوقون</strong><p>نراجع بيانات المتجر والمنتجات قبل النشر.</p></div>
+        <div><span>⌁</span><strong>اختيارات أذكى</strong><p>التجربة تتعلم من تفاعلك بدل عرض كل شيء للجميع.</p></div>
+        <div><span>↺</span><strong>إرجاع واضح</strong><p>سياسة إرجاع وتشغيل موثقة مع التاجر.</p></div>
+        <div><span>◉</span><strong>دعم عبر واتساب</strong><p>مساعدة ومتابعة للطلب عبر القناة المناسبة.</p></div>
+      </div>
+    </section>
+  </main>
+
+  <footer><div class="container footer"><span>Merchant OS</span><span>منصة تجارة ذكية للتجار والعملاء</span></div></footer>
+  <script src="./app.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "skills": {
+    "webapp-testing": {
+      "source": "registry:anthropic/webapp-testing",
+      "commit_sha": "9d2f1ae187231d8199c64b5b762e1bdf2244733d",
+      "digest": "sha256:89205b7063417389c3c2b6d6dc8b4b250f8e04b4b8b9c07b0f0ff3b7c5e74d93",
+      "agents": [
+        "codex"
+      ],
+      "mode": {
+        "codex": "canonical"
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+.env
+.venv/
+**pycache**/
+*.py[cod]
+.pytest_cache/
+.DS_Store
+
+# Local runtime databases and backups
+data/
+*.db
+*.sqlite
+*.sqlite3
