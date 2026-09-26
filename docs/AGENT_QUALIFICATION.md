@@ -168,6 +168,6 @@ Therefore the qualification additions did not regress the repository's automated
 
 ### Reuse conclusion
 
-Current external research supports borrowing evaluation and orchestration patterns rather than replacing Merchant OS's architecture. In particular, trajectory/state-aware evaluation and explicit tool/business-rule guardrails are proven patterns in current agent tooling. They can strengthen qualification without forcing a framework migration. citeturn0search0turn0search1
+Current external research supports borrowing evaluation and orchestration patterns rather than replacing Merchant OS's architecture. In particular, trajectory/state-aware evaluation and explicit tool/business-rule guardrails are proven patterns in current agent tooling. They can strengthen qualification without forcing a framework migration.
 
 No external agent or framework has been integrated.
