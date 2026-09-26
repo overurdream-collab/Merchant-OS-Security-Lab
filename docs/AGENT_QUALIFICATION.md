@@ -171,3 +171,28 @@ Therefore the qualification additions did not regress the repository's automated
 Current external research supports borrowing evaluation and orchestration patterns rather than replacing Merchant OS's architecture. In particular, trajectory/state-aware evaluation and explicit tool/business-rule guardrails are proven patterns in current agent tooling. They can strengthen qualification without forcing a framework migration.
 
 No external agent or framework has been integrated.
+
+
+## Qualification pass 2 — decision and execution boundaries
+
+Additional characterization now covers:
+
+- JEV behavior under contradictory evidence.
+- The fact that JEV confidence is invariant to provenance quality when evidence count is equal; this is recorded as a decision-model limitation, not silently "fixed".
+- Arabic multi-intent routing precedence.
+- Customer-facing routing preserves the selected primary-intent contract.
+- The decision gate blocks high-risk execution even at maximum confidence.
+- The execution boundary rejects missing approval and permits execution only with a matching persisted approval.
+
+Commit: `a140bd2cdc0ba71cac6dda3792c658e5bf1e1f57`.
+
+CI verification for the commit:
+- Security Lab Tests: **success**
+- Merchant OS CI: **success**
+- test workflow: **success**
+
+### Current qualification conclusion
+
+The strongest production boundary is now demonstrably the approval-backed CommerceControlPlane. The largest remaining qualification risk is decision quality, specifically JEV confidence semantics and evidence contradiction/quality handling. Customer conversational state is also still a capability boundary rather than a demonstrated multi-turn agent capability.
+
+No new agent, framework, integration, or product feature was introduced.
