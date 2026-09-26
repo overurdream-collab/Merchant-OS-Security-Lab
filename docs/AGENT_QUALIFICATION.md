@@ -218,3 +218,30 @@ The current implementation now has evidence for:
 - fail-stop Professor OS behavior without continuing into later stages.
 
 The remaining gap is **state-aware agent behavior and recovery**, not basic persistence or failure containment. These remain qualification findings rather than implementation requests.
+
+
+## Qualification pass 4 — end-to-end decision and execution boundary
+
+The end-to-end qualification now covers:
+
+- **Approval-backed commerce execution:** a registered commerce action executes only when a matching persisted approved proposal and approval ID are supplied.
+- **Execution-agent bypass attempt:** calling the commerce ExecutionAgent without an approval ID is blocked before the service handler is reached.
+- **Approval replay:** reusing the consumed approval is blocked and the underlying commerce handler is not called again.
+- **Supervisor veto:** an explicit supervisor veto returns `veto` and prevents the mission from becoming `ready_for_action`.
+- **Verification failure:** evidence originating only from an unverified candidate is rejected before JEV/gates can produce `ready_for_action`.
+
+Qualification commit: `a2d1ab844772354e7341fe928f7cac9301c47b62`.
+
+### Boundary conclusion
+
+The tested path is now:
+
+`Mission -> 10 specialists -> Supervisor -> Evidence verification -> JEV -> Decision Gate`
+
+followed, when separately approved, by:
+
+`Proposal -> persisted approval -> CommerceControlPlane -> registered handler`
+
+The execution path does not accept a caller-supplied boolean as authorization and does not permit the ExecutionAgent to bypass the CommerceControlPlane.
+
+No new agent, framework, integration, or product feature was introduced.
