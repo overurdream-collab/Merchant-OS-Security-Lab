@@ -13,6 +13,7 @@ class FakeCommerceService:
 class FakeCommerceControlPlane:
     def __init__(self):
         self._actions = {}
+        self._scope_configuration = {}
         self.executions = []
 
     def register_action(self, action, handler):
