@@ -32,7 +32,7 @@ class TestPhaseAServices(unittest.TestCase):
         apply_migrations(self.path)
         self.clock=lambda:datetime(2026,9,24,tzinfo=timezone.utc)
         self.cart=CartService(self.path,clock=self.clock); self.quote=QuoteService(self.path,clock=self.clock); self.checkout=CheckoutService(self.path,clock=self.clock)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.zone=db.execute("INSERT INTO delivery_zones(zone_code,city_name,display_name) VALUES(?,?,?)",("Z-"+str(uuid.uuid4()),"Sanaa","Sanaa")).lastrowid; db.commit()
         self.actor=VerifiedIdentityContext("ADMIN","admin:1","verified-test","test-authority",self.clock().isoformat())
     def tearDown(self): database.DB_PATH=self.old; self.tmp.cleanup()
@@ -43,10 +43,10 @@ class TestPhaseAServices(unittest.TestCase):
         offers=[]
         for n in range(merchant_count):
             mid=merchants.create_merchant(f"Merchant {n}")
-            with closing(database.get_connection()) as db: db.execute("UPDATE merchants SET status='active' WHERE merchant_id=?",(mid,)); db.commit()
+            with database.get_connection() as db: db.execute("UPDATE merchants SET status='active' WHERE merchant_id=?",(mid,)); db.commit()
             pid=catalog.create_product(f"Product {n}",sku=f"SKU-{uuid.uuid4()}")
             oid=catalog.add_offer(pid,mid,100,stock=stock,inventory_managed=1)
-            with closing(database.get_connection()) as db:
+            with database.get_connection() as db:
                 db.execute("INSERT INTO merchant_delivery_policies(merchant_id,zone_id,delivery_fee,delivery_fee_minor,currency,updated_at) VALUES(?,?,5,5,'YER',?)",(mid,self.zone,self.clock().isoformat())); db.commit()
             self.cart.add_item(cookie,oid,1); offers.append((mid,pid,oid))
         revision=self.quote.quote(cookie)["quote_revision"]
@@ -60,7 +60,7 @@ class TestPhaseAServices(unittest.TestCase):
         mid=result["merchant_orders"][0]["merchant_order_id"]
         self.assertEqual(service.cancel_merchant_order(mid,actor=self.actor)["status"],"cancelled")
         self.assertEqual(service.cancel_merchant_order(mid,actor=self.actor)["status"],"cancelled")
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertEqual(db.execute("SELECT stock FROM offers WHERE offer_id=?",(offer,)).fetchone()[0],2)
             self.assertEqual([tuple(r) for r in db.execute("SELECT movement_type,quantity FROM inventory_movements ORDER BY movement_id").fetchall()],[ ("STOCK_DECREMENTED",1),("STOCK_RESTORED",1)])
 
@@ -70,7 +70,7 @@ class TestPhaseAServices(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             outcomes=list(pool.map(lambda _: service.cancel_merchant_order(mid,actor=self.actor)["status"],range(2)))
         self.assertEqual(outcomes,["cancelled","cancelled"])
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertEqual(db.execute("SELECT stock FROM offers WHERE offer_id=?",(offer,)).fetchone()[0],4)
             self.assertEqual(db.execute("SELECT COUNT(*) FROM inventory_movements WHERE movement_type='STOCK_RESTORED'").fetchone()[0],1)
 
@@ -91,12 +91,12 @@ class TestPhaseAServices(unittest.TestCase):
         self.assertEqual(caught.exception.code,"INVALID_STATE_TRANSITION")
         transition_merchant_order(mo,"confirmed",actor=self.actor,verifier=_Verifier())
         transition_merchant_order(mo,"processing",actor=self.actor,verifier=_Verifier())
-        with closing(database.get_connection()) as db: self.assertEqual(db.execute("SELECT status FROM orders WHERE order_id=?",(result["order_id"],)).fetchone()[0],"processing")
+        with database.get_connection() as db: self.assertEqual(db.execute("SELECT status FROM orders WHERE order_id=?",(result["order_id"],)).fetchone()[0],"processing")
 
     def test_root_cancellation_is_atomic_and_partial_by_merchant(self):
         _,result,_=self.prepare(stock=2,merchant_count=2); mids=[x["merchant_order_id"] for x in result["merchant_orders"]]
         service=CancellationService(identity_verifier=_Verifier()); service.cancel_merchant_order(mids[0],actor=self.actor)
-        with closing(database.get_connection()) as db: self.assertEqual(db.execute("SELECT status FROM orders WHERE order_id=?",(result["order_id"],)).fetchone()[0],"partially_cancelled")
+        with database.get_connection() as db: self.assertEqual(db.execute("SELECT status FROM orders WHERE order_id=?",(result["order_id"],)).fetchone()[0],"partially_cancelled")
         root=service.cancel_root_order(result["order_id"],actor=self.actor)
         self.assertEqual(root["status"],"cancelled")
 
@@ -118,7 +118,7 @@ class TestPhaseAServices(unittest.TestCase):
         transition_merchant_order(mo,"confirmed",actor=self.actor,verifier=_Verifier())
         transition_merchant_order(mo,"processing",actor=self.actor,verifier=_Verifier())
         transition_merchant_order(mo,"ready",actor=self.actor,verifier=_Verifier())
-        with closing(database.get_connection()) as db: fid=db.execute("SELECT fulfillment_id FROM fulfillments WHERE merchant_order_id=?",(mo,)).fetchone()[0]
+        with database.get_connection() as db: fid=db.execute("SELECT fulfillment_id FROM fulfillments WHERE merchant_order_id=?",(mo,)).fetchone()[0]
         delivery=DeliveryService(identity_verifier=_Verifier()); row=delivery.create_for_fulfillment(fid,actor=self.actor,idempotency_key="delivery-1")
         self.assertEqual(row["fulfillment_id"],fid); self.assertEqual(row["delivery_address_snapshot"],"Sanaa")
         delivery.transition(row["delivery_id"],"assigned",actor=self.actor)

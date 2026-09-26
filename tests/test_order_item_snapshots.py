@@ -34,13 +34,13 @@ class TestOrderItemHistoricalFoundation(unittest.TestCase):
     def test_offer_backed_line_derives_relationships_and_preserves_snapshots(self):
         item_id = orders._persist_offer_order_item(self.order_id, self.offer_id, 3)
 
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("""UPDATE products SET name='Renamed product', sku='RENAMED-1'
                           WHERE product_id=?""", (self.product_id,))
             db.execute("UPDATE merchants SET name='Renamed merchant' WHERE merchant_id=?", (self.merchant_id,))
             db.execute("UPDATE offers SET price=99 WHERE offer_id=?", (self.offer_id,))
             db.commit()
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             row = db.execute("SELECT * FROM order_items WHERE order_item_id=?", (item_id,)).fetchone()
 
         self.assertEqual(row["offer_id"], self.offer_id)
@@ -55,7 +55,7 @@ class TestOrderItemHistoricalFoundation(unittest.TestCase):
 
     def test_line_total_is_computed_by_persistence_path(self):
         item_id = orders._persist_offer_order_item(self.order_id, self.offer_id, 4)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             row = db.execute("SELECT quantity, unit_price, line_total FROM order_items WHERE order_item_id=?", (item_id,)).fetchone()
         self.assertEqual(row["line_total"], row["quantity"] * row["unit_price"])
 
@@ -64,7 +64,7 @@ class TestOrderItemHistoricalFoundation(unittest.TestCase):
             database.upsert_customer("legacy-customer")["customer_id"],
             [{"product_id": self.product_id, "quantity": 1, "unit_price": 7}],
         )
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             row = db.execute("SELECT * FROM order_items WHERE order_id=?", (item["order_id"],)).fetchone()
         self.assertIsNone(row["offer_id"])
         self.assertIsNone(row["merchant_id"])
@@ -74,7 +74,7 @@ class TestOrderItemHistoricalFoundation(unittest.TestCase):
 
     def test_fk_enabled_connection_rejects_deleting_referenced_offer(self):
         orders._persist_offer_order_item(self.order_id, self.offer_id, 1)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("PRAGMA foreign_keys=ON")
             with self.assertRaises(sqlite3.IntegrityError):
                 db.execute("DELETE FROM offers WHERE offer_id=?", (self.offer_id,))
@@ -83,10 +83,10 @@ class TestOrderItemHistoricalFoundation(unittest.TestCase):
         orders._persist_offer_order_item(self.order_id, self.offer_id, 1)
         # Clear the offer's merchant link on this FK-disabled temporary connection
         # to isolate the order item's own merchant reference for the constraint check.
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET merchant_id=NULL WHERE offer_id=?", (self.offer_id,))
             db.commit()
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("PRAGMA foreign_keys=ON")
             with self.assertRaises(sqlite3.IntegrityError):
                 db.execute("DELETE FROM merchants WHERE merchant_id=?", (self.merchant_id,))

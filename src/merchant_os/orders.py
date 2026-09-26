@@ -72,7 +72,7 @@ def create_order(customer_id, items, delivery_address=None, currency="YER"):
 def _persist_offer_order_item(order_id, offer_id, quantity):
     """Persist one historical offer-backed line; this is not a checkout flow."""
     ensure_order_schema()
-    with closing(get_connection()) as db:
+    with get_connection() as db:
         # Keep this FK setting local to the persistence connection. The project-wide
         # connection default remains unchanged.
         db.execute("PRAGMA foreign_keys=ON")

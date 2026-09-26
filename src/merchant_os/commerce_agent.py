@@ -286,8 +286,7 @@ class CommerceControlPlane:
 
         runtime_id = str(uuid.uuid4())
         ensure_runtime_schema()
-        db = database.get_connection()
-        try:
+        with database.get_connection() as db:
             db.execute("BEGIN IMMEDIATE")
             rows = db.execute(
                 "SELECT input FROM agent_runs WHERE task_type='commerce_action'"
@@ -304,8 +303,6 @@ class CommerceControlPlane:
                  self._now()),
             )
             db.commit()
-        finally:
-            db.close()
 
         try:
             output = dict(self._actions[proposal.action].handler(proposal) or {})
@@ -334,8 +331,7 @@ class CommerceControlPlane:
         serialized = asdict(evidence)
         serialized["state"] = evidence.state.value
         ensure_runtime_schema()
-        db = database.get_connection()
-        try:
+        with database.get_connection() as db:
             db.execute("BEGIN IMMEDIATE")
             rows = db.execute("SELECT status, input FROM agent_runs WHERE task_type='commerce_action'").fetchall()
             action_done = any(
@@ -370,12 +366,6 @@ class CommerceControlPlane:
             )
             db.commit()
             return evidence
-        except Exception:
-            if db.in_transaction:
-                db.rollback()
-            raise
-        finally:
-            db.close()
 
     def record_verified_memory(self, evidence: Evidence, *, approval_id: str,
                                scope: str, scope_id: str, key: str, value: Any) -> None:
@@ -386,8 +376,7 @@ class CommerceControlPlane:
         serialized = asdict(evidence)
         serialized["state"] = evidence.state.value
         ensure_runtime_schema()
-        db = database.get_connection()
-        try:
+        with database.get_connection() as db:
             db.execute("BEGIN IMMEDIATE")
             approval_row = db.execute(
                 "SELECT output FROM agent_runs WHERE task_id=? AND task_type='commerce_approval'",
@@ -451,16 +440,10 @@ class CommerceControlPlane:
                  json.dumps({"evidence": serialized}, ensure_ascii=False, default=str), now),
             )
             db.commit()
-        except Exception:
-            if db.in_transaction:
-                db.rollback()
-            raise
-        finally:
-            db.close()
 
     def _load_approval(self, approval_id: str) -> dict | None:
         ensure_runtime_schema()
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             row = db.execute(
                 "SELECT output FROM agent_runs WHERE task_id=? AND task_type='commerce_approval'",
                 (approval_id,),
@@ -474,7 +457,7 @@ class CommerceControlPlane:
     def _audit(self, *, task_id: str, task_type: str, agent: str, status: str,
                input_data: Mapping[str, Any], output_data: Mapping[str, Any], error: str | None) -> None:
         ensure_runtime_schema()
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute(
                 """INSERT INTO agent_runs
                    (task_id, parent_task_id, task_type, agent, status, input, output, error, created_at)
@@ -487,7 +470,7 @@ class CommerceControlPlane:
 
     def _finish_action(self, task_id: str, status: str, output: Mapping[str, Any],
                        error: str | None, approval_id: str) -> None:
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("BEGIN IMMEDIATE")
             db.execute(
                 "UPDATE agent_runs SET status=?, output=?, error=? WHERE task_id=? AND task_type='commerce_action'",

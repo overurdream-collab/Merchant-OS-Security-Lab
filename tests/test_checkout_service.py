@@ -33,7 +33,7 @@ class TestCheckoutService(unittest.TestCase):
         self.carts = CartService(self.path, clock=lambda: self.now)
         self.quotes = QuoteService(self.path, clock=lambda: self.now)
         self.checkout_service = CheckoutService(self.path, clock=lambda: self.now)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.zone_id = db.execute(
                 "INSERT INTO delivery_zones(zone_code,city_name,display_name,active) "
                 "VALUES (?,?,?,1)", (f"Z-{uuid.uuid4()}", "Sanaa", "Sanaa")
@@ -46,7 +46,7 @@ class TestCheckoutService(unittest.TestCase):
 
     def merchant(self, name=None, status="active"):
         merchant_id = merchants.create_merchant(name or f"Merchant-{uuid.uuid4()}")
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE merchants SET status=? WHERE merchant_id=?", (status, merchant_id))
             db.commit()
         return merchant_id
@@ -55,7 +55,7 @@ class TestCheckoutService(unittest.TestCase):
               managed=0, stock=None, name=None):
         product_id = catalog.create_product(name or f"Product-{uuid.uuid4()}", sku=f"SKU-{uuid.uuid4()}")
         offer_id = catalog.add_offer(product_id, merchant_id, price, currency=currency)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE products SET active=? WHERE product_id=?", (product_active, product_id))
             db.execute("UPDATE offers SET active=?, inventory_managed=?, stock=? WHERE offer_id=?",
                        (active, managed, stock, offer_id))
@@ -86,7 +86,7 @@ class TestCheckoutService(unittest.TestCase):
         )
 
     def counts(self):
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             return {name: db.execute(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
                     for name in ("customers", "orders", "order_items", "merchant_orders",
                                  "fulfillments", "deliveries", "settlements", "checkout_idempotency")}
@@ -94,18 +94,18 @@ class TestCheckoutService(unittest.TestCase):
     def test_single_merchant_guest_cod_snapshots_and_replay(self):
         merchant_id = self.merchant("Seller A")
         offer_id, product_id = self.offer(merchant_id, price=12, name="Tea")
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             original_sku = db.execute("SELECT sku FROM products WHERE product_id=?", (product_id,)).fetchone()[0]
         cookie, cart_id = self.session_cart([(offer_id, 2)])
         revision = self.quote(cookie)["quote_revision"]
         with patch.dict(os.environ, {"CHECKOUT_FINGERPRINT_SECRET": SECRET}):
             result = self.submit(cookie, revision)
             # A successful replay is resolved before mutable catalog state is read.
-            with closing(database.get_connection()) as db:
+            with database.get_connection() as db:
                 db.execute("UPDATE products SET active=0 WHERE product_id=?", (product_id,))
                 db.commit()
             replay = self.submit(cookie, revision)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE products SET name='Renamed Tea',sku='RENAMED' WHERE product_id=?", (product_id,))
             db.execute("UPDATE merchants SET name='Renamed Seller' WHERE merchant_id=?", (merchant_id,))
             db.execute("UPDATE offers SET price=99 WHERE offer_id=?", (offer_id,))
@@ -115,7 +115,7 @@ class TestCheckoutService(unittest.TestCase):
         self.assertEqual(result["payment_method"], "cod")
         self.assertTrue(replay["replayed"])
         self.assertEqual(replay["order_id"], result["order_id"])
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             root = db.execute("SELECT * FROM orders WHERE order_id=?", (result["order_id"],)).fetchone()
             self.assertEqual((root["payment_status"], root["recipient_name_snapshot"],
                               root["recipient_phone_snapshot"]), ("unpaid", "Buyer Name", "967700123456"))
@@ -146,7 +146,7 @@ class TestCheckoutService(unittest.TestCase):
         self.assertEqual(groups[mb]["products_subtotal"], 21)
         self.assertEqual(groups[ma]["delivery_fee"], 3)
         self.assertEqual(len(groups), 2)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM fulfillments").fetchone()[0], 2)
             self.assertEqual(db.execute("SELECT COUNT(*) FROM order_items WHERE order_id=?",
                                         (result["order_id"],)).fetchone()[0], 2)
@@ -159,7 +159,7 @@ class TestCheckoutService(unittest.TestCase):
         revision = self.quote(cookie)["quote_revision"]
         with patch.dict(os.environ, {"CHECKOUT_FINGERPRINT_SECRET": SECRET}):
             self.submit(cookie, revision)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             stock = {r["offer_id"]: r["stock"] for r in db.execute(
                 "SELECT offer_id,stock FROM offers WHERE offer_id IN (?,?)", (managed, unmanaged))}
         self.assertEqual(stock[managed], 3)
@@ -186,7 +186,7 @@ class TestCheckoutService(unittest.TestCase):
         revision = self.quote(cookie)["quote_revision"]
         with patch.dict(os.environ, {"CHECKOUT_FINGERPRINT_SECRET": SECRET}):
             self.submit(cookie, revision)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertEqual(db.execute("SELECT stock FROM offers WHERE offer_id=?", (offer,)).fetchone()[0], 0)
 
     def test_stale_price_policy_or_eligibility_fails_before_writes(self):
@@ -203,7 +203,7 @@ class TestCheckoutService(unittest.TestCase):
                 offer, product = self.offer(merchant_id)
                 cookie, _ = self.session_cart([(offer, 1)])
                 revision = self.quote(cookie)["quote_revision"]
-                with closing(database.get_connection()) as db:
+                with database.get_connection() as db:
                     db.execute(sql, (product if uses_product else merchant_id if "policies" in sql else offer,))
                     db.commit()
                 before = self.counts()
@@ -281,7 +281,7 @@ class TestCheckoutService(unittest.TestCase):
         offer, _ = self.offer(m, managed=1, stock=5)
         cookie, _ = self.session_cart([(offer, 2)])
         revision = self.quote(cookie)["quote_revision"]
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("CREATE TRIGGER fail_checkout_event BEFORE INSERT ON order_events "
                        "BEGIN SELECT RAISE(ABORT,'forced test failure'); END")
             db.commit()
@@ -291,7 +291,7 @@ class TestCheckoutService(unittest.TestCase):
                 self.submit(cookie, revision)
         self.assertEqual(raised.exception.code, "checkout_failed")
         self.assertEqual(self.counts(), before)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertEqual(db.execute("SELECT stock FROM offers WHERE offer_id=?", (offer,)).fetchone()[0], 5)
             self.assertEqual(db.execute("SELECT status FROM carts").fetchone()[0], "active")
 
@@ -313,7 +313,7 @@ class TestCheckoutService(unittest.TestCase):
                 outcomes = list(pool.map(run, ("parallel-a", "parallel-b")))
         self.assertEqual([kind for kind, _ in outcomes].count("ok"), 2, outcomes)
         self.assertEqual(self.counts()["orders"], 1)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertGreaterEqual(db.execute("SELECT stock FROM offers WHERE offer_id=?", (offer,)).fetchone()[0], 0)
             self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
 
@@ -360,7 +360,7 @@ class TestCheckoutService(unittest.TestCase):
         self.assertTrue(any(value in ("insufficient_stock", "quote_changed")
                             for value in outcomes if isinstance(value, str)))
         self.assertEqual(self.counts()["orders"], 1)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertEqual(db.execute("SELECT stock FROM offers WHERE offer_id=?", (offer,)).fetchone()[0], 0)
         for (cookie, _, _), outcome in zip(((cookie_a, revision_a, "stock-a"),
                                            (cookie_b, revision_b, "stock-b")), outcomes):
@@ -382,7 +382,7 @@ class TestCheckoutService(unittest.TestCase):
         offer, _ = self.offer(merchant_id)
         cookie, cart_id = self.session_cart([(offer, 1)])
         revision = self.quote(cookie)["quote_revision"]
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE delivery_zones SET active=0 WHERE zone_id=?", (self.zone_id,))
             db.commit()
         with patch.dict(os.environ, {"CHECKOUT_FINGERPRINT_SECRET": SECRET}):
@@ -395,7 +395,7 @@ class TestCheckoutService(unittest.TestCase):
         offer, _ = self.offer(merchant_id)
         cookie, _ = self.session_cart([(offer, 1)])
         revision = self.quote(cookie)["quote_revision"]
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("DELETE FROM merchant_delivery_policies WHERE merchant_id=?", (merchant_id,))
             db.commit()
         with patch.dict(os.environ, {"CHECKOUT_FINGERPRINT_SECRET": SECRET}):
@@ -407,7 +407,7 @@ class TestCheckoutService(unittest.TestCase):
         offer, _ = self.offer(merchant_id)
         cookie, _ = self.session_cart([(offer, 1)])
         revision = self.quote(cookie)["quote_revision"]
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("PRAGMA ignore_check_constraints=ON")
             db.execute("UPDATE offers SET currency='USD' WHERE offer_id=?", (offer,))
             db.commit()
@@ -421,7 +421,7 @@ class TestCheckoutService(unittest.TestCase):
         offer, _ = self.offer(merchant_id)
         cookie, _ = self.session_cart([(offer, 1)])
         revision = self.quote(cookie)["quote_revision"]
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("PRAGMA ignore_check_constraints=ON")
             db.execute("UPDATE cart_items SET quantity=1.5 WHERE offer_id=?", (offer,))
             db.commit()

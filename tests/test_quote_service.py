@@ -47,7 +47,7 @@ class TestQuoteService(unittest.TestCase):
         self.temp.cleanup()
 
     def add_zone(self, *, active=1):
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             zone_id = db.execute(
                 "INSERT INTO delivery_zones(zone_code, city_name, display_name, active) "
                 "VALUES (?, 'Sanaa', 'Sanaa', ?)", (f"Z-{uuid.uuid4()}", active)
@@ -57,24 +57,24 @@ class TestQuoteService(unittest.TestCase):
 
     def add_merchant(self, *, name=None, status="active"):
         merchant_id = merchants.create_merchant(name or f"Merchant {uuid.uuid4()}")
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE merchants SET status=? WHERE merchant_id=?", (status, merchant_id))
             db.commit()
         return merchant_id
 
     def add_offer(self, merchant_id, *, price=10, currency="YER", offer_active=1, product_active=1):
         product_id = catalog.create_product(f"Product {uuid.uuid4()}", sku=f"SKU-{uuid.uuid4()}")
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE products SET active=? WHERE product_id=?", (product_active, product_id))
             db.commit()
         offer_id = catalog.add_offer(product_id, merchant_id, price, currency=currency)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET active=? WHERE offer_id=?", (offer_active, offer_id))
             db.commit()
         return offer_id, product_id
 
     def add_policy(self, merchant_id, *, fee=5, zone_id=None, active=1, currency="YER"):
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             policy_id = db.execute(
                 """INSERT INTO merchant_delivery_policies
                    (merchant_id, zone_id, delivery_fee, currency, active, updated_at, delivery_fee_minor)
@@ -156,7 +156,7 @@ class TestQuoteService(unittest.TestCase):
         with self.assertRaises(DeliveryZoneUnavailable):
             self.carts.set_delivery_zone(cookie, inactive_zone, cart_id=cart["cart_id"])
         self.carts.set_delivery_zone(cookie, self.zone_id, cart_id=cart["cart_id"])
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE delivery_zones SET active=0 WHERE zone_id=?", (self.zone_id,))
             db.commit()
         with self.assertRaises(QuoteDeliveryZoneUnavailable):
@@ -178,7 +178,7 @@ class TestQuoteService(unittest.TestCase):
                 self.carts.add_item(cookie, offer_id)
                 self.set_zone(cookie)
                 # Eligibility may change after insertion; Quote re-reads source data.
-                with closing(database.get_connection()) as db:
+                with database.get_connection() as db:
                     if "status" in case:
                         db.execute("UPDATE merchants SET status=? WHERE merchant_id=?", (case["status"], merchant_id))
                     if "offer_active" in case:
@@ -197,7 +197,7 @@ class TestQuoteService(unittest.TestCase):
         _, cookie = self.session()
         cart = self.carts.get_cart(cookie)
         self.carts.set_delivery_zone(cookie, self.zone_id, cart_id=cart["cart_id"])
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("DROP TRIGGER cart_items_require_eligible_offer_insert")
             db.execute(
                 "INSERT INTO cart_items(cart_id, offer_id, quantity, created_at, updated_at) "
@@ -215,7 +215,7 @@ class TestQuoteService(unittest.TestCase):
         _, cookie = self.session()
         self.carts.add_item(cookie, offer_id, 2)
         self.set_zone(cookie)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET price=15,price_minor=15 WHERE offer_id=?", (offer_id,))
             db.commit()
         quote = self.quotes.quote(cookie)
@@ -230,7 +230,7 @@ class TestQuoteService(unittest.TestCase):
         _, cookie = self.session()
         self.carts.add_item(cookie, offer_id)
         self.set_zone(cookie)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("PRAGMA ignore_check_constraints=ON")
             db.execute("UPDATE cart_items SET quantity=1.5 WHERE offer_id=?", (offer_id,))
             db.commit()
@@ -244,7 +244,7 @@ class TestQuoteService(unittest.TestCase):
         _, cookie = self.session()
         self.carts.add_item(cookie, offer_id)
         self.set_zone(cookie)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("PRAGMA ignore_check_constraints=ON")
             db.execute("UPDATE merchant_delivery_policies SET currency='USD' WHERE merchant_id=?", (merchant_id,))
             db.commit()
@@ -266,7 +266,7 @@ class TestQuoteService(unittest.TestCase):
         cart_b = self.carts.get_cart(cookie_b)
         with self.assertRaises(CartNotFound):
             self.carts.set_delivery_zone(cookie_a, self.zone_id, cart_id=cart_b["cart_id"])
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertIsNone(db.execute(
                 "SELECT delivery_zone_id FROM carts WHERE cart_id=?", (cart_b["cart_id"],)
             ).fetchone()[0])
@@ -310,7 +310,7 @@ class TestQuoteService(unittest.TestCase):
         _, cookie = self.session()
         cart = self.carts.add_item(cookie, offer_id)
         self.carts.set_delivery_zone(cookie, self.zone_id, cart_id=cart["cart_id"])
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             before = {
                 table: db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
                 for table in ("sessions", "carts", "cart_items", "orders", "order_items",
@@ -321,7 +321,7 @@ class TestQuoteService(unittest.TestCase):
                 "ON c.session_id=s.session_id WHERE c.cart_id=?", (cart["cart_id"],)
             ).fetchone())
         self.quotes.quote(cookie)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             after = {
                 table: db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
                 for table in before
@@ -376,11 +376,11 @@ class TestQuoteService(unittest.TestCase):
         revisions = [self.quotes.quote(cookie)["quote_revision"]]
         self.carts.update_quantity(cookie, offer_id, 2)
         revisions.append(self.quotes.quote(cookie)["quote_revision"])
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET price=11,price_minor=11 WHERE offer_id=?", (offer_id,))
             db.commit()
         revisions.append(self.quotes.quote(cookie)["quote_revision"])
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE merchant_delivery_policies SET delivery_fee=3,delivery_fee_minor=3 WHERE merchant_id=?",
                        (merchant_id,))
             db.commit()
@@ -400,7 +400,7 @@ class TestQuoteService(unittest.TestCase):
         self.carts.set_delivery_zone(cookie, other_zone, cart_id=cart["cart_id"])
         second = self.quotes.quote(cookie)["quote_revision"]
         self.assertNotEqual(first, second)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE products SET name='Changed Product' WHERE product_id=?", (product_id,))
             db.commit()
         third = self.quotes.quote(cookie)["quote_revision"]
@@ -410,14 +410,14 @@ class TestQuoteService(unittest.TestCase):
         merchant_id = self.add_merchant()
         offer_id, _ = self.add_offer(merchant_id)
         self.add_policy(merchant_id)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET inventory_managed=1,stock=5 WHERE offer_id=?", (offer_id,))
             db.commit()
         _, cookie = self.session()
         self.carts.add_item(cookie, offer_id, 1)
         self.set_zone(cookie)
         before = self.quotes.quote(cookie)["quote_revision"]
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET stock=4 WHERE offer_id=?", (offer_id,))
             db.commit()
         after = self.quotes.quote(cookie)["quote_revision"]
@@ -427,14 +427,14 @@ class TestQuoteService(unittest.TestCase):
         merchant_id = self.add_merchant()
         offer_id, _ = self.add_offer(merchant_id)
         self.add_policy(merchant_id)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET inventory_managed=0,stock=5 WHERE offer_id=?", (offer_id,))
             db.commit()
         _, cookie = self.session()
         self.carts.add_item(cookie, offer_id, 1)
         self.set_zone(cookie)
         before = self.quotes.quote(cookie)["quote_revision"]
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET stock=4 WHERE offer_id=?", (offer_id,))
             db.commit()
         after = self.quotes.quote(cookie)["quote_revision"]

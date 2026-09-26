@@ -49,29 +49,29 @@ class TestCartService(unittest.TestCase):
 
     def merchant(self, name, status="active"):
         merchant_id = merchants.create_merchant(name)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE merchants SET status=? WHERE merchant_id=?", (status, merchant_id))
             db.commit()
         return merchant_id
 
     def offer(self, merchant_id, *, currency="YER", product_active=1, offer_active=1, price=10):
         product_id = catalog.create_product(f"Product {merchant_id}", sku=f"SKU-{uuid.uuid4()}")
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE products SET active=? WHERE product_id=?", (product_active, product_id))
             db.commit()
         offer_id = catalog.add_offer(product_id, merchant_id, price, currency=currency)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET active=? WHERE offer_id=?", (offer_active, offer_id))
             db.commit()
         return offer_id, product_id
 
     def cart_row(self, cart_id):
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             return dict(db.execute("SELECT * FROM carts WHERE cart_id=?", (cart_id,)).fetchone())
 
     def test_session_token_is_random_hashed_and_cookie_is_protected(self):
         access, token, cookie_header = self.new_session(https=True)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             row = db.execute("SELECT token_hash FROM sessions WHERE session_id=?", (access.session_id,)).fetchone()
         self.assertNotEqual(row["token_hash"], token)
         self.assertEqual(len(row["token_hash"]), 64)
@@ -93,7 +93,7 @@ class TestCartService(unittest.TestCase):
         self.now += timedelta(days=31)
         replacement = self.service.get_or_create_session(cookie)
         self.assertNotEqual(replacement.session_id, access.session_id)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             old = db.execute("SELECT revoked_at FROM sessions WHERE session_id=?", (access.session_id,)).fetchone()
             cart_status = db.execute("SELECT status FROM carts WHERE cart_id=?", (cart_id,)).fetchone()[0]
         self.assertIsNotNone(old["revoked_at"])
@@ -141,7 +141,7 @@ class TestCartService(unittest.TestCase):
         customer_id = database.upsert_customer("verified-customer")['customer_id']
         _, _, cookie_a = self.new_session()
         _, _, cookie_b = self.new_session()
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE sessions SET customer_id=? WHERE token_hash IS NOT NULL", (customer_id,))
             # Assign only the first session; the second remains anonymous until
             # after its active cart is established for the ownership check.
@@ -149,12 +149,12 @@ class TestCartService(unittest.TestCase):
             db.execute("UPDATE sessions SET customer_id=NULL WHERE session_id=?", (rows[1]["session_id"],))
             db.commit()
         cart_a = self.service.get_cart(cookie_a)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE sessions SET customer_id=? WHERE session_id=(SELECT session_id FROM sessions WHERE token_hash IS NOT NULL ORDER BY rowid DESC LIMIT 1)", (customer_id,))
             db.commit()
         with self.assertRaises(CartNotFound):
             self.service.get_cart(cookie_b)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM carts WHERE customer_id=? AND status='active'", (customer_id,)).fetchone()[0], 1)
 
     def test_cart_expires_after_30_days_inactive_without_deleting_history(self):
@@ -169,7 +169,7 @@ class TestCartService(unittest.TestCase):
         second = self.service.get_cart(cookie)
         self.assertNotEqual(first["cart_id"], second["cart_id"])
         self.assertEqual(self.cart_row(first["cart_id"])["status"], "expired")
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM carts").fetchone()[0], 2)
 
     def test_add_duplicate_update_remove_and_clear(self):
@@ -212,7 +212,7 @@ class TestCartService(unittest.TestCase):
         ]
         usd_offer = self.offer(active)[0]
         negative_offer = self.offer(active)[0]
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET currency='USD' WHERE offer_id=?", (usd_offer,))
             db.execute("UPDATE offers SET price=-1 WHERE offer_id=?", (negative_offer,))
             db.commit()
@@ -222,7 +222,7 @@ class TestCartService(unittest.TestCase):
         for offer_id in invalid:
             with self.subTest(offer_id=offer_id), self.assertRaises(OfferUnavailable):
                 self.service.add_item(cookie, offer_id)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             product_id = catalog.create_product("Legacy unlinked")
             now = self.now.isoformat()
             unlinked = db.execute(
@@ -249,7 +249,7 @@ class TestCartService(unittest.TestCase):
         totals = {group["merchant_id"]: group["products_subtotal"] for group in cart["merchant_groups"]}
         self.assertEqual(totals, {merchant_a: 23.0, merchant_b: 33.0})
         self.assertEqual(cart["products_total"], 56.0)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET price=13 WHERE offer_id=?", (offer_a1,))
             db.commit()
         repriced = self.service.get_cart(cookie)
@@ -260,7 +260,7 @@ class TestCartService(unittest.TestCase):
         offer_id, _ = self.offer(merchant_id)
         _, _, cookie = self.new_session()
         self.service.add_item(cookie, offer_id)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE merchants SET status='inactive' WHERE merchant_id=?", (merchant_id,))
             db.commit()
         cart = self.service.get_cart(cookie)
@@ -276,14 +276,14 @@ class TestCartService(unittest.TestCase):
             results = list(pool.map(lambda _: self.service.add_item(cookie, offer_id), range(8)))
         cart = self.service.get_cart(cookie)
         self.assertEqual(cart["merchant_groups"][0]["items"][0]["quantity"], 8)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertEqual(db.execute("SELECT COUNT(*) FROM carts WHERE status='active'").fetchone()[0], 1)
             self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
 
     def test_foreign_keys_are_enabled_per_cart_connection_only(self):
         _, _, cookie = self.new_session()
         self.service.get_cart(cookie)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             self.assertEqual(db.execute("PRAGMA foreign_keys").fetchone()[0], 0)
         with self.service._connection() as db:
             self.assertEqual(db.execute("PRAGMA foreign_keys").fetchone()[0], 1)

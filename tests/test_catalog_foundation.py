@@ -30,7 +30,7 @@ class TestCatalogFoundation(unittest.TestCase):
     def test_one_product_can_have_offers_from_two_merchants(self):
         offer_a = catalog.add_offer(self.product_id, self.merchant_a, 10)
         offer_b = catalog.add_offer(self.product_id, self.merchant_b, 12)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             rows = db.execute(
                 "SELECT offer_id, product_id, merchant_id FROM offers ORDER BY offer_id"
             ).fetchall()
@@ -41,7 +41,7 @@ class TestCatalogFoundation(unittest.TestCase):
 
     def test_merchant_id_is_authoritative_for_display_identity(self):
         offer_id = catalog.add_offer(self.product_id, self.merchant_a, 10)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("UPDATE offers SET merchant_name='Legacy conflicting label' WHERE offer_id=?", (offer_id,))
             db.commit()
         product = catalog.find_products("Shared Product")[0]
@@ -52,7 +52,7 @@ class TestCatalogFoundation(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "merchant_not_found"):
             catalog.add_offer(self.product_id, 99999, 10)
 
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             db.execute("PRAGMA foreign_keys=ON")
             with self.assertRaises(sqlite3.IntegrityError):
                 db.execute(
@@ -65,7 +65,7 @@ class TestCatalogFoundation(unittest.TestCase):
     def test_inventory_mode_check_and_unmanaged_offer_without_stock(self):
         unmanaged = catalog.add_offer(self.product_id, self.merchant_a, 10, stock=None, inventory_managed=0)
         managed = catalog.add_offer(self.product_id, self.merchant_b, 12, stock=0, inventory_managed=1)
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             for bad_value in (-1, 2):
                 with self.assertRaises(sqlite3.IntegrityError):
                     db.execute(
@@ -84,7 +84,7 @@ class TestCatalogFoundation(unittest.TestCase):
         ])
 
     def test_offer_indexes_exist_with_expected_columns(self):
-        with closing(database.get_connection()) as db:
+        with database.get_connection() as db:
             indexes = {
                 row["name"]: [column["name"] for column in db.execute(
                     f"PRAGMA index_info('{row['name']}')"
