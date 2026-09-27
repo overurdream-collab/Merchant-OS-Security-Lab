@@ -278,3 +278,18 @@ Qualification test: `17dc62e32109844e7096d0036150f8a9a6215959`.
 Fix: `776b0cf2d792b3bb36f28ddfa4e282e3f5b1e6fe`.
 
 This is a runtime isolation/security correctness fix, not a new agent, integration, framework, or product feature.
+
+
+## Qualification pass 7 — cross-specialist evidence integrity
+
+A context-integrity test demonstrated that `ProfessorOS` previously used an unrestricted `current.update(result.output)`. A later specialist could therefore replace the accumulated `evidence` collection rather than contributing to it. This could erase earlier provenance before the final verification step.
+
+The orchestrator now treats `evidence` as an append-only collection at specialist boundaries: existing evidence is preserved and any additional evidence is appended. Other specialist output fields retain their existing update semantics.
+
+Qualification test commits: `98bdaa36effd29d6c265d5236ce1f996cd745b4b` and `36ceb98afd1adb20da24991a11a729cea28cb562`.
+
+Fix: `8b4c4afe548f8e9d69a1b1531e5065798e7f02c0`.
+
+### Remaining limitation
+
+Append-only evidence prevents deletion/replacement, but it does not establish that every specialist-generated evidence item is trustworthy. The current verification layer validates provenance shape rather than source authenticity or specialist authorization. This remains a decision-quality limitation and is not silently changed into a new evidence-policy system.
