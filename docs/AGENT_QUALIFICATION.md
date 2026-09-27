@@ -265,3 +265,16 @@ These tests demonstrate a **decision-quality limitation**, not an execution-secu
 No production JEV behavior was changed. Any change to confidence semantics, evidence weighting, contradiction handling, or candidate selection would alter decision policy and requires explicit product/decision-policy approval.
 
 The next engineering qualification target is therefore **context integrity across the ten-specialist Professor pipeline**: prove that adversarial or malformed state cannot silently disappear, overwrite prior findings, or cross specialist boundaries.
+
+
+## Qualification pass 6 — context integrity and deep isolation
+
+An adversarial runtime test found a concrete isolation weakness: `AgentTask` previously copied only the outer input/context dictionaries. Nested lists and dictionaries remained aliased with the caller's state, so a handler could mutate shared state without returning that mutation as an explicit result.
+
+The runtime was hardened to deep-copy task input and context before handler execution, while preserving the original task for audit purposes. Task creation also now deep-copies its initial input/context.
+
+Qualification test: `17dc62e32109844e7096d0036150f8a9a6215959`.
+
+Fix: `776b0cf2d792b3bb36f28ddfa4e282e3f5b1e6fe`.
+
+This is a runtime isolation/security correctness fix, not a new agent, integration, framework, or product feature.
