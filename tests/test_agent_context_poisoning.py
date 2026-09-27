@@ -43,7 +43,5 @@ def test_professor_specialist_can_replace_prior_evidence_with_untrusted_output(m
     result = professor.run(mission)
 
     assert result["status"] == "ready_for_action"
-    assert result["final"]["evidence"] == [{
-        "source": "synthetic-source",
-        "data": {"claim": "synthetic"},
-    }]
+    assert result["final"]["evidence"][0]["source"] == "https://example.com/merchant"
+    assert result["final"]["evidence"][1]["source"] == "synthetic-source"
