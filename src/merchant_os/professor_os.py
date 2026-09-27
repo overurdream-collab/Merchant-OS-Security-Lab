@@ -69,7 +69,14 @@ class ProfessorOS:
             results.append(result)
             if result.status != "completed":
                 return self._response(mission, current, results, "failed")
-            current.update(result.output)
+            output = result.output
+            if "evidence" in output:
+                prior_evidence = list(current.get("evidence", []) or [])
+                new_evidence = list(output.get("evidence", []) or [])
+                current.update({key: value for key, value in output.items() if key != "evidence"})
+                current["evidence"] = prior_evidence + new_evidence
+            else:
+                current.update(output)
             parent = result.task_id
 
         if current.get("veto") or current.get("supervisor", {}).get("veto"):
