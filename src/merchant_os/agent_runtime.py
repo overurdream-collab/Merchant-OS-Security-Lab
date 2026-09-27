@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional
 import json
 import uuid
@@ -60,7 +61,14 @@ class AgentRuntime:
             result=AgentResult(task.task_id,"unassigned","failed",{},error=f"No agent registered for task type: {task.task_type}")
             self._audit(task,result); return result
         try:
-            output=dict(definition.handler(task) or {})
+            isolated_task = AgentTask(
+                task_id=task.task_id,
+                task_type=task.task_type,
+                input=deepcopy(task.input),
+                context=deepcopy(task.context),
+                parent_task_id=task.parent_task_id,
+            )
+            output=dict(definition.handler(isolated_task) or {})
             next_agent=output.pop("_next_agent",None)
             result=AgentResult(task.task_id,definition.name,"completed",output,next_agent)
         except Exception as exc:
@@ -68,7 +76,7 @@ class AgentRuntime:
         self._audit(task,result); return result
 
     def create_task(self, task_type, input, context=None, parent_task_id=None):
-        return AgentTask(str(uuid.uuid4()),task_type,dict(input),dict(context or {}),parent_task_id)
+        return AgentTask(str(uuid.uuid4()),task_type,deepcopy(input),deepcopy(context or {}),parent_task_id)
 
     def _audit(self, task, result):
         ensure_runtime_schema()
